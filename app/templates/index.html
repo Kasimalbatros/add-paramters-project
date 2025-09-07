@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Python Flask App</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        h1 { color: #333; }
+        .env { 
+            padding: 10px; 
+            margin: 20px; 
+            border-radius: 5px; 
+            display: inline-block;
+        }
+        .dev { background-color: #d4edda; color: #155724; }
+        .qa { background-color: #fff3cd; color: #856404; }
+        .prod { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Our Python Flask Application</h1>
+    <p>This application is running in the:</p>
+    <div class="env {{ environment.lower() }}">{{ environment }} environment</div>
+</body>
+</html>
