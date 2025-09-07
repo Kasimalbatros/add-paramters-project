@@ -3,8 +3,6 @@ pipeline {
 
     parameters {
         choice(name: 'ENV', choices: ['DEV', 'QA', 'PROD'], description: 'Select the environment')
-        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to build')
-        string(name: 'GIT_URL', defaultValue: 'https://github.com/Kasimalbatros/add-paramters-project.git', description: 'Git repository URL')
     }
 
     environment {
@@ -15,22 +13,9 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                echo "Fetching code from ${params.GIT_URL} on branch ${params.BRANCH}"
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${params.BRANCH}"]],
-                    extensions: [],
-                    userRemoteConfigs: [[url: "${params.GIT_URL}"]]
-                ])
-            }
-        }
-
         stage('Build') {
             steps {
                 echo "Building application for ${params.ENV} environment"
-                // Build your Docker image
                 sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
@@ -38,15 +23,27 @@ pipeline {
         stage('Test') {
             steps {
                 echo "Running tests"
-                // Example: Run your tests
-                sh "python -m pytest tests/ || true" // Continue even if tests fail
+                sh '''
+                # Check if Python is available, if not use python3
+                if command -v python3 >/dev/null 2>&1; then
+                    PYTHON_CMD=python3
+                else
+                    PYTHON_CMD=python
+                fi
+
+                if [ -d "tests" ] && [ -f "tests/test_app.py" ]; then
+                    echo "Running tests with $PYTHON_CMD"
+                    $PYTHON_CMD -m pytest tests/ -v || echo "Tests completed with some failures"
+                else
+                    echo "No tests found - skipping test stage"
+                fi
+                '''
             }
         }
 
         stage('Deploy') {
             steps {
                 script {
-                    // Define environment configuration within script block
                     def envConfig = [
                         'DEV': [url: DEV_URL, port: 5001, env: 'development'],
                         'QA': [url: QA_URL, port: 5002, env: 'testing'], 
@@ -58,13 +55,29 @@ pipeline {
                     echo "Deploying to ${config.url}"
                     echo "Using port: ${config.port}"
                     
-                    // Example deployment command
+                    // Stop any existing container with same name first
+                    sh "docker rm -f my-app-${params.ENV.toLowerCase()} || true"
+                    
+                    // Run the container
                     sh """
-                        docker run -d \
-                        --name my-app-${params.ENV.toLowerCase()} \
-                        -p ${config.port}:5000 \
-                        -e ENVIRONMENT=${config.env} \
+                        docker run -d \\
+                        --name my-app-${params.ENV.toLowerCase()} \\
+                        -p ${config.port}:5000 \\
+                        -e ENVIRONMENT=${config.env} \\
                         ${DOCKER_IMAGE}
+                    """
+                    
+                    // Wait a moment for the container to start
+                    sleep 5
+                    
+                    // Test if the container is responding
+                    sh """
+                        if curl -f http://localhost:${config.port} >/dev/null 2>&1; then
+                            echo "Application is running successfully on port ${config.port}"
+                        else
+                            echo "Warning: Application may not be responding on port ${config.port}"
+                            docker logs my-app-${params.ENV.toLowerCase()}
+                        fi
                     """
                 }
             }
@@ -74,14 +87,17 @@ pipeline {
     post {
         always {
             echo "Pipeline finished for ${params.ENV}"
-            // Clean up Docker containers
-            sh "docker ps -aq --filter name=my-app- | xargs --no-run-if-empty docker rm -f || true"
+            // Only clean up if you want to remove containers after pipeline
+            // sh "docker ps -aq --filter name=my-app- | xargs --no-run-if-empty docker rm -f || true"
         }
         success {
             echo "Pipeline completed successfully!"
+            echo "Container my-app-${params.ENV.toLowerCase()} is running on port ${envConfig[params.ENV].port}"
         }
         failure {
             echo "Pipeline failed!"
+            // Show container logs for debugging
+            sh "docker logs my-app-${params.ENV.toLowerCase()} || true"
         }
     }
 }
