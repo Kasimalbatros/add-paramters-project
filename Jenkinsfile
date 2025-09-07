@@ -33,6 +33,8 @@ pipeline {
 
                 if [ -d "tests" ] && [ -f "tests/test_app.py" ]; then
                     echo "Running tests with $PYTHON_CMD"
+                    # Install pytest first
+                    $PYTHON_CMD -m pip install pytest || echo "Failed to install pytest"
                     $PYTHON_CMD -m pytest tests/ -v || echo "Tests completed with some failures"
                 else
                     echo "No tests found - skipping test stage"
@@ -87,12 +89,20 @@ pipeline {
     post {
         always {
             echo "Pipeline finished for ${params.ENV}"
-            // Only clean up if you want to remove containers after pipeline
-            // sh "docker ps -aq --filter name=my-app- | xargs --no-run-if-empty docker rm -f || true"
         }
         success {
             echo "Pipeline completed successfully!"
-            echo "Container my-app-${params.ENV.toLowerCase()} is running on port ${envConfig[params.ENV].port}"
+            echo "Container my-app-${params.ENV.toLowerCase()} is running"
+            
+            // Define the port mapping for the success message
+            script {
+                def successPorts = [
+                    'DEV': 5001,
+                    'QA': 5002,
+                    'PROD': 5003
+                ]
+                echo "Access your application at: http://localhost:${successPorts[params.ENV]}"
+            }
         }
         failure {
             echo "Pipeline failed!"
