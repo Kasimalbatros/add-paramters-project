@@ -3,8 +3,8 @@ pipeline {
 
     parameters {
         choice(name: 'ENV', choices: ['DEV', 'QA', 'PROD'], description: 'Select the environment')
-        string(name: 'BRANCH', defaultValue: 'main', description: 'Git branch to build')
-        string(name: 'GIT_URL', defaultValue: 'https://github.com/your-username/your-repo-name.git', description: 'Git repository URL')
+        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to build')
+        string(name: 'GIT_URL', defaultValue: 'https://github.com/Kasimalbatros/add-paramters-project.git', description: 'Git repository URL')
     }
 
     environment {
